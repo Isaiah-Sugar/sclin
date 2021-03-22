@@ -3,10 +3,15 @@
 scanline audio visualization in your DAW
 
 an (incomplete) VST3/AU plugin to display audio inputs 
+
 PLEASE REPORT ANY BUGS THROUGH GITHUB
+
 DO NOT HESITATE
-YOU ARE NOT WASTING MY TIME IT HAS NO VALUE
+
+YOU ARE NOT WASTING MY TIME, MY TIME HAS NO VALUE
+
 YOU CAN'T BE MORE CLUELESS THAN ME
+
 HOW DO I TURN OFF CAPS LOCK
 
 
@@ -19,18 +24,18 @@ I should really put compiled versions up
 but if you've got a compiled version, you just have to move the .vst3 and .au files into the correct directories:
 
 
-* windows:
+##### windows:
 	* `C:\Program Files\Common Files\VST3`
 
-* macos:
-	* (for all users)
-        	* `/Library/Audio/Plug-Ins/VST3` (VST3 obviously)
-       		* `/Library/Audio/Plug-Ins/Components` (AU plugin)
+##### macos:
+* (for all users)
+        * `/Library/Audio/Plug-Ins/VST3` (VST3 obviously)
+       	* `/Library/Audio/Plug-Ins/Components` (AU plugin)
 
-	* (for only 1 user)
-        	* `/Users/THE-NAME-OF-THE-USER/Library/Audio/Plug-Ins/VST3` (VST3)
-        	* `/Users/THE-NAME-OF-THE-USER/Library/Audio/Plug-Ins/Components` (AU)
-* linux: 
+* (for only 1 user)
+        * `/Users/THE-NAME-OF-THE-USER/Library/Audio/Plug-Ins/VST3` (VST3)
+        * `/Users/THE-NAME-OF-THE-USER/Library/Audio/Plug-Ins/Components` (AU)
+##### linux: 
 	* `figure it out yourself`
 
 
