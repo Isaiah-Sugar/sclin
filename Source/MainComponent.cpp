@@ -281,6 +281,30 @@ void MainComponent::paint (Graphics& g) {
     
     
     
+    Path currentPixelPath;
+    if (myRoundednessSlider.getValue() == 1.0) {
+        currentPixelPath.addRectangle(XOffset,  // x
+        Offset,  // y
+        xPixelSize,// + addXPixels,  // width
+        yPixelSize); // height (had + addYPixels)
+    }
+    else if (myRoundednessSlider.getValue() == 0.0){
+        currentPixelPath.addEllipse(Offset,  // x
+        Offset,  // y
+        xPixelSize,// + addXPixels,  // width
+        yPixelSize);// height (had + addYPixels)
+    }
+    else {
+        currentPixelPath.addRoundedRectangle(float(XOffset),  // x
+        (float(currentYPixel) * yPixelSize) + float(Offset),  // y
+        xPixelSize,// + addXPixels,  // width
+        yPixelSize,// + addYPixels,
+        cornerSize);
+    }
+    
+    
+    
+    
         // PIXEL UPDATING LOOP
     while (guiLoopNumber/averageNumber < jmin(imgPixels, theSound.getNumSamples())){
         
@@ -382,27 +406,8 @@ void MainComponent::paint (Graphics& g) {
         
         
         //DRAW CURRENT PIXEL (uses color from above)
-        Path currentPixelPath;
-        if (myRoundednessSlider.getValue() == 1.0) {
-            currentPixelPath.addRectangle((float(currentXPixel) * xPixelSize) + float(XOffset),  // x
-            (float(currentYPixel) * yPixelSize) + float(Offset),  // y
-            xPixelSize + addXPixels,  // width
-            yPixelSize + addYPixels); // height
-        }
-        else if (myRoundednessSlider.getValue() == 0.0){
-            currentPixelPath.addEllipse((float(currentXPixel) * xPixelSize) + float(XOffset),  // x
-            (float(currentYPixel) * yPixelSize) + float(Offset),  // y
-            xPixelSize + addXPixels,  // width
-            yPixelSize + addYPixels); // height
-        }
-        else {
-            currentPixelPath.addRoundedRectangle((float(currentXPixel) * xPixelSize) + float(XOffset),  // x
-            (float(currentYPixel) * yPixelSize) + float(Offset),  // y
-            xPixelSize + addXPixels,  // width
-            yPixelSize + addYPixels,
-            cornerSize);
-        }
-        g.fillPath(currentPixelPath);
+
+        g.fillPath(currentPixelPath, AffineTransform::translation(float(currentXPixel) * xPixelSize, float(currentYPixel) * yPixelSize));
         
         
         /*
@@ -442,8 +447,9 @@ void MainComponent::paint (Graphics& g) {
             }
                     
         }
-        guiLoopNumber ++;
         
+        
+        guiLoopNumber ++;
     } //that curly brace ends the while() loop. ik its wierd, just deal with it.
 
 //    g.setColour(Colours::red);
