@@ -184,6 +184,14 @@ public:
         
     }
     
+    void catchup () {
+        readPosition = writePosition.get();
+    }
+    
+    void skipSamples (int numToSkip) {
+        readPosition += numToSkip;
+        readPosition = readPosition.get() % bufferSize;
+    }
     
 private:
     int bufferSize;

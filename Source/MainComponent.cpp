@@ -24,6 +24,7 @@ myRoundednessSlider(myLookAndFeel.greyedTextColour, myLookAndFeel.backgroundColo
     // In your constructor, you should add any child components, and
     // initialise any special settings that your component needs.
     startTimerHz(60);
+    r->catchup();
     buffer = r;
     
 
@@ -215,9 +216,27 @@ void MainComponent::paint (Graphics& g) {
     
     
     if (buffer->availableSamples() >= imgPixels) {
+        
+        if (buffer->availableSamples() >= imgPixels * 2) {
+            buffer->skipSamples((int(buffer->availableSamples() / imgPixels) * imgPixels) - (imgPixels));
+            //figure it out, stupid.
+            //welcome to isaiah's helpful comment corner.
+        }
+        
         buffer->readSamples(theSound, imgPixels * averageNumber);
+        /*
+        debugSampleCountThing += theSound.getNumSamples();;
+        if (debugSampleCountThing >= 100000){
+            printf("read %lu samples at %d (millis) \n", debugSampleCountThing, Time::getMillisecondCounter());
+            debugSampleCountThing = 0;
+        }
+        //std::printf("imgPixels - %d, drawing \n", imgPixels);
+        */
+        
     }
     else {
+        
+        //std::printf("imgPixels - %d, %d samples available \n", imgPixels, buffer->availableSamples());
         
     }
 
@@ -306,9 +325,8 @@ void MainComponent::paint (Graphics& g) {
     
     
         // PIXEL UPDATING LOOP
-    while (guiLoopNumber/averageNumber < jmin(imgPixels, theSound.getNumSamples())){
+    while (guiLoopNumber/averageNumber < imgPixels) {
         
-    //    float currentSample = 0;
                 //update random number (for dev)
      //   float randomNumber = Random::getSystemRandom().nextFloat();
         

@@ -174,6 +174,8 @@ private:
     int localPreviousNote;
     bool* localIsOnPointer;
     
+    //unsigned long debugSampleCountThing = 0;
+    
 //    AudioBuffer<float> theSound(2, imgPixels * averageNumber);
     
 };
