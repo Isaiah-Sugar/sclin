@@ -252,6 +252,7 @@ void SclinAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer& 
     ringBuffer->writeSamples(buffer, 0, buffer.getNumSamples());
     numBuffers++;
     
+    /*
     for (int channel = 0; channel < totalNumInputChannels; ++channel)
     {
         auto* channelData = buffer.getWritePointer (channel);
@@ -261,7 +262,7 @@ void SclinAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer& 
         
         // ..do something to the data...
     }
-    
+    */
     /*
     MidiBuffer processedMidi;
     int time;
