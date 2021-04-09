@@ -168,7 +168,7 @@ void MainComponent::paint (Graphics& g) {
 
         
     
-    if (*localIsOnPointer && localPreviousNote != *localCurrentNotePointer) {
+    if (*localIsOnPointer && localPreviousNote != *localCurrentNotePointer && settingsMenuButton.getToggleState()) {
         xImgPixels = *localIsOnPointer;
         widthKnob.setValue(*localCurrentNotePointer);
         localPreviousNote = *localCurrentNotePointer;
@@ -196,8 +196,8 @@ void MainComponent::paint (Graphics& g) {
  //   xImgPixels = widthKnob.getValue() * 4000;
  //   yImgPixels = heightKnob.getValue() * 4000;
     
-    imgPixels = xImgPixels * yImgPixels;
-    
+ //   imgPixels = xImgPixels * yImgPixels;
+    //moved that into the sliderchanged() function aswell
 
         
     int currentScanlinePixel = 0;
@@ -211,12 +211,11 @@ void MainComponent::paint (Graphics& g) {
     
     
     
-    AudioBuffer<float> theSound(2, imgPixels * averageNumber);
-    theSound.clear();
+//    AudioBuffer<float> theSound(2, imgPixels * averageNumber);
     
     
     if (buffer->availableSamples() >= imgPixels) {
-        
+        theSound.clear();
         if (buffer->availableSamples() >= imgPixels * 2) {
             buffer->skipSamples((int(buffer->availableSamples() / imgPixels) * imgPixels) - (imgPixels));
             //figure it out, stupid.
@@ -726,10 +725,13 @@ void MainComponent::colourChannelKnobSettings (Slider& s) {
 void MainComponent::sliderValueChanged (Slider* s) {
     if (s == &heightKnob){
         yImgPixels = int(s->getValue());
+        imgPixels = xImgPixels * yImgPixels;
+        theSound.setSize(2, imgPixels);
     }
     else if (s == &widthKnob){
-        if (!settingsMenuButton.getToggleState())
-            xImgPixels = int(s->getValue());
+        xImgPixels = int(s->getValue());
+        imgPixels = xImgPixels * yImgPixels;
+        theSound.setSize(2, xImgPixels * yImgPixels);
     }
     else if (s == &channelKnob1){
         channelKnobValue[0] = (s->getValue() / 100.0);

@@ -176,6 +176,6 @@ private:
     
     //unsigned long debugSampleCountThing = 0;
     
-//    AudioBuffer<float> theSound(2, imgPixels * averageNumber);
+    AudioBuffer<float> theSound = AudioBuffer<float>(2, imgPixels * averageNumber);
     
 };
