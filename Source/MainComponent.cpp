@@ -18,7 +18,8 @@ settingsMenuButton ("", DrawableButton::ButtonStyle::ImageFitted),
 connectingLine1(myLookAndFeel.pointerColour, myLookAndFeel.backgroundColour),
 connectingLine2(myLookAndFeel.pointerColour, myLookAndFeel.backgroundColour),
 connectingLine3(myLookAndFeel.pointerColour, myLookAndFeel.backgroundColour),
-myRoundednessSlider(myLookAndFeel.greyedTextColour, myLookAndFeel.backgroundColour)
+myRoundednessSlider(myLookAndFeel.greyedTextColour, myLookAndFeel.backgroundColour),
+freezeButton("", DrawableButton::ButtonStyle::ImageStretched)
 {
     
     // In your constructor, you should add any child components, and
@@ -45,6 +46,20 @@ myRoundednessSlider(myLookAndFeel.greyedTextColour, myLookAndFeel.backgroundColo
     
     addAndMakeVisible(myRoundednessSlider);
     
+    
+    freezeIconDrawablePressed = Drawable::createFromSVGFile(freezeIconSVG);
+    freezeIconDrawablePressed->setTransformToFit(Rectangle<float>(0, 0, 100, 100), RectanglePlacement::fillDestination);
+    //freezeIconDrawablePressed->replaceColour(Colour::fromFloatRGBA(0, 0, 0, 0), myLookAndFeel.darkTrim);
+    
+    freezeIconDrawablePressed = Drawable::createFromSVGFile(freezeIconSVG);
+    freezeIconDrawablePressed->setTransformToFit(Rectangle<float>(0, 0, 100, 100), RectanglePlacement::fillDestination);
+    freezeIconDrawablePressed->replaceColour(Colour::fromFloatRGBA(0, 0, 0, 1), Colour::fromFloatRGBA(1, 1, 1, 1));
+    
+    
+    freezeButton.setClickingTogglesState(true);
+    freezeButton.setColour(DrawableButton::backgroundOnColourId, Colour::fromFloatRGBA(0, 0, 0, 0));
+    freezeButton.setImages(freezeIconDrawableNormal.get(), nullptr, nullptr, nullptr, freezeIconDrawablePressed.get());
+    addAndMakeVisible(freezeButton);
     
     addAndMakeVisible(connectingLine1);
     addAndMakeVisible(connectingLine2);
@@ -214,7 +229,7 @@ void MainComponent::paint (Graphics& g) {
 //    AudioBuffer<float> theSound(2, imgPixels * averageNumber);
     
     
-    if (buffer->availableSamples() >= imgPixels) {
+    if (buffer->availableSamples() >= imgPixels && !freezeButton.getToggleState()) {
         theSound.clear();
         if (buffer->availableSamples() >= imgPixels * 2) {
             buffer->skipSamples((int(buffer->availableSamples() / imgPixels) * imgPixels) - (imgPixels));
@@ -507,6 +522,10 @@ void MainComponent::resized() {
                                   settingsMenuButton.getHeight() - (Offset / 10),
                                   settingsMenuButton.getHeight() - (Offset / 10));
     
+    freezeButton.setBounds(settingsMenuButton.getX() + settingsMenuButton.getWidth() - (settingsMenuButton.getHeight() * 2) - (Offset / 20),
+                           settingsMenuButton.getY() + (Offset / 20),
+                           (settingsMenuButton.getHeight() - (Offset / 10)) * freezeIconAspect.x,
+                           settingsMenuButton.getHeight() - (Offset / 10));
     
     
     

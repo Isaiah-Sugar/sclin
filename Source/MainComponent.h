@@ -89,21 +89,25 @@ public:
     
 
     
-//    Colour textLight = Colour::fromHSV(0.0f, 0.0f, 0.95f, 1.0f);
-//    Colour textGreyed = Colour::fromHSV(0.0f, 0.0f, 0.65f, 1.0f);
+    const File MainDir = File("/Users/isaiahsugar/programming/audio/plugins/sc-lin/sc-lin"); // CHANGE THIS TO THE SC-LIN DIRECTORY!! I DO NOT KNOW WHAT I AM DOING SO THIS IS MY SOLUTION!! CHANGE THIS!!
+    
+   // const File testFileThing = MainDir.getChildFile ("sclin full logo seperate colors.svg");
+    
+    const File sclinLogoSeperateColorsSVG = MainDir.getChildFile ("Source/sclin full logo seperate colors.svg");
+    const File freezeIconSVG = MainDir.getChildFile("Source/snowflake.svg");
+    const Point<float> freezeIconWH = Point<float>(167.00723, 145.31050); //width and height of freezeIconSVG
+    const Point<float> freezeIconAspect = Point<float>(freezeIconWH.x / freezeIconWH.y, 1);
 
-
-    const File sclinLogoSeperateColorsSVG = File ("/Users/isaiahsugar/programming/audio/plugins/sc-lin/sc-lin/Source/sclin full logo seperate colors.svg");
-
-    std::unique_ptr<Drawable> sclinLogoDrawableNormal = Drawable::createFromSVGFile(sclinLogoSeperateColorsSVG);
+    std::unique_ptr<Drawable> sclinLogoDrawableNormal =  Drawable::createFromSVGFile(sclinLogoSeperateColorsSVG);
     std::unique_ptr<Drawable> sclinLogoDrawablePressed = Drawable::createFromSVGFile(sclinLogoSeperateColorsSVG);
     
-    
+    std::unique_ptr<Drawable> freezeIconDrawableNormal = Drawable::createFromSVGFile(freezeIconSVG);
+    std::unique_ptr<Drawable> freezeIconDrawablePressed = Drawable::createFromSVGFile(freezeIconSVG);
     
     DrawableButton settingsMenuButton;
     
     RoundednessSlider myRoundednessSlider;
-    
+    DrawableButton freezeButton;
     
 
     
