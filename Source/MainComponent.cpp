@@ -13,22 +13,31 @@
 
 
 //==============================================================================
-MainComponent::MainComponent(AudioProcessor& processor, RingBuffer<float>* r, int* currentNotePointer, bool* isOnPointer):
+MainComponent::MainComponent(SclinAudioProcessor* processor, RingBuffer<float>* r, float* CurrentFreqPointer, bool* isOnPointer):
 settingsMenuButton ("", DrawableButton::ButtonStyle::ImageFitted),
 connectingLine1(myLookAndFeel.pointerColour, myLookAndFeel.backgroundColour),
 connectingLine2(myLookAndFeel.pointerColour, myLookAndFeel.backgroundColour),
 connectingLine3(myLookAndFeel.pointerColour, myLookAndFeel.backgroundColour),
 myRoundednessSlider(myLookAndFeel.greyedTextColour, myLookAndFeel.backgroundColour),
-freezeButton("", DrawableButton::ButtonStyle::ImageStretched)
+freezeButton("", DrawableButton::ButtonStyle::ImageStretched),
+scanlineVisualizer(&theSound, &xImgPixels, dynamic_cast<AudioParameterInt*>(processor->myTreeState.getParameter("ypixels")), dynamic_cast<AudioParameterFloat*>(processor->myTreeState.getParameter("roundness")), channelKnobValue, channelMode, dynamic_cast<AudioParameterBool*>(processor->myTreeState.getParameter("colormode")))
 {
-    
-    // In your constructor, you should add any child components, and
-    // initialise any special settings that your component needs.
     startTimerHz(60);
     r->catchup();
     buffer = r;
     
-
+    pointerToAudioProcessor = processor; //pointer to the audioProcessor running this
+    
+    
+    xImgPixels = pointerToAudioProcessor->defaultPixels;
+    
+    theSound = AudioBuffer<float>(2, imgPixels * averageNumber);
+    
+    xPixelSize = xDrawPixels/xImgPixels;
+    yPixelSize = yDrawPixels/ pointerToAudioProcessor->defaultPixels;
+    
+    
+    
     //make an svg button for the settings menu
     sclinLogoDrawableNormal = Drawable::createFromSVGFile(sclinLogoSeperateColorsSVG);
     sclinLogoDrawableNormal->setTransformToFit(Rectangle<float>(0, 0, 100, 100), RectanglePlacement::fillDestination);
@@ -36,16 +45,23 @@ freezeButton("", DrawableButton::ButtonStyle::ImageStretched)
     
     sclinLogoDrawablePressed = Drawable::createFromSVGFile(sclinLogoSeperateColorsSVG);
     sclinLogoDrawablePressed->setTransformToFit(Rectangle<float>(0, 0, 100, 100), RectanglePlacement::fillDestination);
-    updateLogoColor(sclinLogoDrawablePressed.get(), &settingsMenuButton, myLookAndFeel.greyedTextColour, myLookAndFeel.darkTrim);
+    updateLogoColor(sclinLogoDrawablePressed.get(), &settingsMenuButton, myLookAndFeel.greyedTextColour, myLookAndFeel.darkTrim );
     
     
     settingsMenuButton.setClickingTogglesState(true);
     settingsMenuButton.setColour(DrawableButton::backgroundOnColourId, Colour::fromFloatRGBA(0, 0, 0, 0));
     settingsMenuButton.setImages(sclinLogoDrawableNormal.get(), nullptr, nullptr, nullptr, sclinLogoDrawablePressed.get());
+    settingsMenuButton.addListener(this);
     addAndMakeVisible(settingsMenuButton);
+
+    //set up buttonAttachment
+        midiButtonAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(processor->myTreeState, "midienable", settingsMenuButton);
+    
     
     addAndMakeVisible(myRoundednessSlider);
     
+    
+    roundnessSliderAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(processor->myTreeState, "roundness", myRoundednessSlider);
     
     freezeIconDrawablePressed = Drawable::createFromSVGFile(freezeIconSVG);
     freezeIconDrawablePressed->setTransformToFit(Rectangle<float>(0, 0, 100, 100), RectanglePlacement::fillDestination);
@@ -61,6 +77,13 @@ freezeButton("", DrawableButton::ButtonStyle::ImageStretched)
     freezeButton.setImages(freezeIconDrawableNormal.get(), nullptr, nullptr, nullptr, freezeIconDrawablePressed.get());
     addAndMakeVisible(freezeButton);
     
+    freezeButtonAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(processor->myTreeState, "freeze", freezeButton);
+    
+    
+
+    addAndMakeVisible(scanlineVisualizer);
+    
+    
     addAndMakeVisible(connectingLine1);
     addAndMakeVisible(connectingLine2);
     addAndMakeVisible(connectingLine3);
@@ -69,12 +92,22 @@ freezeButton("", DrawableButton::ButtonStyle::ImageStretched)
     
     
     //set up the width/height knobs
-    pixelKnobSettings(heightKnob); //settings for x and y pixel count knobs
-    knobSettings(heightKnob); //settings for all knobs
-    
 
+    
     pixelKnobSettings(widthKnob); //settings for x and y pixel count knobs
     knobSettings(widthKnob); //settings for all knobs
+    widthKnob.setTextValueSuffix (" px");
+    
+        
+    pixelKnobSettings(xCyclesKnob);
+    knobSettings(xCyclesKnob);
+    xCyclesKnob.setTextValueSuffix (" cycle"); //please please please change. 'cycles' is not very descriptive.
+
+    buttonClicked(&settingsMenuButton);
+    
+    pixelKnobSettings(heightKnob); //settings for x and y pixel count knobs
+    knobSettings(heightKnob); //settings for all knobs
+    heightKnob.setTextValueSuffix (" px");
     
     
     //set up x and y pixels labels.
@@ -88,13 +121,17 @@ freezeButton("", DrawableButton::ButtonStyle::ImageStretched)
     YPixels.setJustificationType(Justification::centred);
     YPixels.setFont(myLookAndFeel.goodFont);
     
+    //set up sliderAttachment objects
+    xPixelsSliderAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(processor->myTreeState, "xpixels", widthKnob);
+    xCyclesSliderAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(processor->myTreeState, "xcycles", xCyclesKnob);
+    yPixelsSliderAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(processor->myTreeState, "ypixels", heightKnob);
     
     //colorMode is the toggleButton which switches between RGB and HSV modes.
     addAndMakeVisible(colorMode);
     colorMode.addListener(this);
     colorMode.setLookAndFeel(&myLookAndFeel);
     
-
+    colorModeButtonAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(processor->myTreeState, "colormode", colorMode);
     
     //set up the rgb/hsv labels
     
@@ -142,20 +179,33 @@ freezeButton("", DrawableButton::ButtonStyle::ImageStretched)
     channelModeComboBoxInit(channelMode3);
     comboBoxSettings(channelMode3);
 
+
     
-    colourChannelKnobSettings(channelKnob1);
+    channelMode1ComboAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(processor->myTreeState, "channelmode1", channelMode1);
+    channelMode2ComboAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(processor->myTreeState, "channelmode2", channelMode2);
+    channelMode3ComboAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(processor->myTreeState, "channelmode3", channelMode3);
+    
+    
+    //colourChannelKnobSettings(channelKnob1);
     knobSettings(channelKnob1);
     
-    colourChannelKnobSettings(channelKnob2);
+    //colourChannelKnobSettings(channelKnob2);
     knobSettings(channelKnob2);
     
-    colourChannelKnobSettings(channelKnob3);
+    //colourChannelKnobSettings(channelKnob3);
     knobSettings(channelKnob3);
     
+    channelKnob1SliderAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(processor->myTreeState, "channelknob1", channelKnob1);
+    channelKnob2SliderAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(processor->myTreeState, "channelknob2", channelKnob2);
+    channelKnob3SliderAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(processor->myTreeState, "channelknob3", channelKnob3);
+    
     //local pointers to midi data
-    localCurrentNotePointer = currentNotePointer;
-    localPreviousNote = *localCurrentNotePointer;
+    localCurrentFreqPointer = CurrentFreqPointer;
+    localPreviousFreq = *localCurrentFreqPointer;
     localIsOnPointer = isOnPointer;
+    
+    
+    imgPixels = xImgPixels * heightKnob.getValue(); //at the end so the heightKnob will get connected to the parameter first
 
 };
 
@@ -163,7 +213,8 @@ freezeButton("", DrawableButton::ButtonStyle::ImageStretched)
 
 
 void MainComponent::timerCallback() {
-      repaint();
+    repaint();
+    scanlineVisualizer.repaint();
 };
 
 
@@ -180,13 +231,15 @@ MainComponent::~MainComponent() {
 void MainComponent::paint (Graphics& g) {
 
     
-
+    if (*localIsOnPointer && localPreviousFreq != *localCurrentFreqPointer && settingsMenuButton.getToggleState()) {
         
-    
-    if (*localIsOnPointer && localPreviousNote != *localCurrentNotePointer && settingsMenuButton.getToggleState()) {
-        xImgPixels = *localIsOnPointer;
-        widthKnob.setValue(*localCurrentNotePointer);
-        localPreviousNote = *localCurrentNotePointer;
+        xImgPixels = int(*localCurrentFreqPointer * int(xCyclesKnob.getValue()));
+        imgPixels = xImgPixels * heightKnob.getValue();
+        theSound.clear();
+        theSound.setSize(2, imgPixels, false, true, true);
+        
+        localPreviousFreq = *localCurrentFreqPointer;
+        
     }
     
     g.fillAll (myLookAndFeel.backgroundColour);   // clear the background
@@ -195,7 +248,7 @@ void MainComponent::paint (Graphics& g) {
     // simple display of incoming midi values
     if (*localIsOnPointer){
         g.setColour (Colours::white);
-        g.drawFittedText(std::to_string(*localCurrentNotePointer), 0, 0, 200, 50, 50, .2);
+        g.drawFittedText(std::to_string(*localCurrentFreqPointer), 0, 0, 200, 50, 50, .2);
     }
     */
 //    drawLines(g);
@@ -212,14 +265,9 @@ void MainComponent::paint (Graphics& g) {
  //   yImgPixels = heightKnob.getValue() * 4000;
     
  //   imgPixels = xImgPixels * yImgPixels;
-    //moved that into the sliderchanged() function aswell
+    //moved that into the sliderValueChanged() function aswell
 
-        
-    int currentScanlinePixel = 0;
-    int currentXPixel = 0;
-    int currentYPixel = 0;
 
-    int guiLoopNumber = 0;
     
     
 
@@ -229,8 +277,9 @@ void MainComponent::paint (Graphics& g) {
 //    AudioBuffer<float> theSound(2, imgPixels * averageNumber);
     
     
-    if (buffer->availableSamples() >= imgPixels && !freezeButton.getToggleState()) {
+    if (buffer->availableSamples() >= imgPixels && !pointerToAudioProcessor->myTreeState.getParameter("freeze")->getValue()) {
         theSound.clear();
+        theSound.setSize(2, imgPixels * averageNumber, false, true, true);
         if (buffer->availableSamples() >= imgPixels * 2) {
             buffer->skipSamples((int(buffer->availableSamples() / imgPixels) * imgPixels) - (imgPixels));
             //figure it out, stupid.
@@ -258,231 +307,47 @@ void MainComponent::paint (Graphics& g) {
 //    const float** happyLilData = theSound.getArrayOfReadPointers();
     
     //OFFSET TO KEEP THE X AXIS CENTERED
-    int XOffset = ((pluginWidth - ((xDrawPixels/xImgPixels) * xImgPixels)) / 2);
+    //int XOffset = ((pluginWidth - ((xDrawPixels/xImgPixels) * xImgPixels)) / 2);
     
     xPixelSize = xDrawPixels / float(xImgPixels);
-    yPixelSize = yDrawPixels / float(yImgPixels);
+    yPixelSize = yDrawPixels / float(heightKnob.getValue());
     
     
-    //DRAW A FILLED IN BLACK SQUARE (or rounded rectangle), TO COVER THE SPACE BEHIND THE DISPLAY. also, makes a non-filled in border, to help show whether it's rounded or not. also because it looks cool.
+    //DRAW A very cool border
     outerSquare = Rectangle <float> (Offset - displayBorderPixels, Offset - displayBorderPixels, xDrawPixels + displayBorderPixels * 2, yDrawPixels + displayBorderPixels * 2);
     
 
-    cornerSize = (std::min(xPixelSize, yPixelSize) / 2) * (1 + (myRoundednessSlider.getValue() * -1));
-    if (cornerSize < 0)
-        cornerSize = 0;
+    //int cornerSize = (std::min(xPixelSize, yPixelSize) / 2) * (1 + (pointerToAudioProcessor->myTreeState.getParameter("roundness")->getValue() * -1));
+    
+    int xCornerSize = (xPixelSize / 2) * (1 + (pointerToAudioProcessor->myTreeState.getParameter("roundness")->getValue() * -1));
+    
+    int yCornerSize = (yPixelSize / 2) * (1 + (pointerToAudioProcessor->myTreeState.getParameter("roundness")->getValue() * -1));
+    
+    if (xCornerSize < 0) //make sure it is positive
+        xCornerSize = 0;
+    if (yCornerSize < 0) //make sure it is positive
+        yCornerSize = 0;
         
     Path borderPath;
     
-    if (myRoundednessSlider.getValue() == 1.0){
-        //fill in a black box behind the pixel display, in case something shows through.
-        g.setColour(Colours::black);
-        g.fillRect(float(Offset), float(Offset), xDrawPixels, yDrawPixels);
-        
+    if (pointerToAudioProcessor->myTreeState.getParameter("roundness")->getValue() == 1.0) {
         //rectangle border.
         borderPath.addRectangle(outerSquare);
         
     }
+    else if (pointerToAudioProcessor->myTreeState.getParameter("roundness")->getValue() == 0.0) {
+        //yes i used rounded rectangles for the ellipse case, one edge may need to be straight while the other is fully rounded.
+        borderPath.addRoundedRectangle(outerSquare, xCornerSize, yCornerSize);
+    }
     else {
-        //fill in a black rounded rectangle behind the pixel display, it shows through between pixels.
-        g.setColour(Colours::black);
-        g.fillRoundedRectangle(Offset, Offset, xDrawPixels + 1, yDrawPixels + 1, cornerSize);
-        
-        
         //rounded rectangle border.
-        borderPath.addRoundedRectangle(outerSquare, 2 * cornerSize, Offset * displayBorderFactor);
-        
+        borderPath.addRoundedRectangle(outerSquare, std::min(xCornerSize, yCornerSize));
     }
     g.setColour(myLookAndFeel.pointerColourDarker);
     //draw border
     g.strokePath(borderPath, PathStrokeType(2));
     
-    
-    //CORRECTLY INVERT NEGATIVE VALUES FOR channelKnob
-    //this generates a value which is added later on (in the pixel update loop), to make negative values inverted positives.
-    float valueNeededToInvert[3];
-            for (int i = 0; i < 3; i++) {
-                if (channelKnobValue[i] < 0.0) {
-                    valueNeededToInvert[i] = 1.0 ;
-                }
-                else{
-                    valueNeededToInvert[i] = 0.0;
-                }
-            }
-    
-    bool localToggleStateRgbHsv = colorMode.getToggleState();
-    
-    
-    
-    Path currentPixelPath;
-    if (myRoundednessSlider.getValue() == 1.0) {
-        currentPixelPath.addRectangle(XOffset,  // x
-        Offset,  // y
-        xPixelSize,// + addXPixels,  // width
-        yPixelSize); // height (had + addYPixels)
-    }
-    else if (myRoundednessSlider.getValue() == 0.0){
-        currentPixelPath.addEllipse(Offset,  // x
-        Offset,  // y
-        xPixelSize,// + addXPixels,  // width
-        yPixelSize);// height (had + addYPixels)
-    }
-    else {
-        currentPixelPath.addRoundedRectangle(float(XOffset),  // x
-        (float(currentYPixel) * yPixelSize) + float(Offset),  // y
-        xPixelSize,// + addXPixels,  // width
-        yPixelSize,// + addYPixels,
-        cornerSize);
-    }
-    
-    
-    
-    
-        // PIXEL UPDATING LOOP
-    while (guiLoopNumber/averageNumber < imgPixels) {
-        
-                //update random number (for dev)
-     //   float randomNumber = Random::getSystemRandom().nextFloat();
-        
-        
-            //UPDATE SAMPLE VALUE
-        
-        
-        const float currentSampleL = theSound.getSample(0, guiLoopNumber);
-        const float currentSampleR = theSound.getSample(1, guiLoopNumber);
-        
-        const float currentSampleAVG = (currentSampleL + currentSampleR) / 2;
 
-        
-        
-        
-        
-        //UPDATE PIXEL COLOR
-        
-        
-        float ChannelOutValue[3] = {0.0, 0.0, 0.0};
-        
-        
-        //case 1 - value from AVG
-        //case 2 - value from left
-        //case 3 - value from right
-        //case 4 - value from knob
-        
-        for (int i = 0; i < 3; i++) {
-        switch (channelMode[i]){
-            case 1:
-                ChannelOutValue[i] = (currentSampleAVG * channelKnobValue[i]) + valueNeededToInvert[i];
-                break;
-            case 2:
-                ChannelOutValue[i] = (currentSampleL * channelKnobValue[i]) + valueNeededToInvert[i];
-                break;
-            case 3:
-                ChannelOutValue[i] = (currentSampleR * channelKnobValue[i]) + valueNeededToInvert[i];
-                break;
-            case 4:
-                ChannelOutValue[i] = abs(channelKnobValue[i]);
-                break;
-        }
-        }
-        
-        //case 0 - RGB routable
-        //case 1 - HSV routable
-        switch (int(localToggleStateRgbHsv)){
-            case 0:
-            {
-                g.setColour(Colour::fromFloatRGBA(ChannelOutValue[0], ChannelOutValue[1], ChannelOutValue[2], 1));
-                }
-                break;
-            case 1:
-            {
-                
-                g.setColour(Colour::fromHSV(ChannelOutValue[0], ChannelOutValue[1], ChannelOutValue[2], 1));
-                }
-                break;
-
-        }
-        
-        
-        
-        
-        
-        //happyLilData[];
-    /*
-        for(int i = guiLoopNumber * averageNumber; i < guiLoopNumber * averageNumber + averageNumber; i++){
-            //currentSample += happyLilData[0][i];
-            currentSample += theSound.getSample(0, i);
-        }
-        currentSample /= averageNumber;
-        */
-        //random pixel color (for dev, otherwise leave it turned off)
-        //g.setColour (Colour::fromHSV (0.0f, 0.0f, randomNumber, 1.0f));
-        
-        
-        // used to be: if (!roundedButton.getToggleState()) {
-        if (myRoundednessSlider.getValue() == 0.0) {
-            if(currentXPixel == xImgPixels){
-                addXPixels = 0;
-            }
-            else{
-                addXPixels = 1;
-            }
-        
-            if(currentYPixel == yImgPixels){
-                addYPixels = 0;
-            }
-            else{
-                addYPixels = 1;
-            }
-        }
-
-        
-        
-        //DRAW CURRENT PIXEL (uses color from above)
-
-        g.fillPath(currentPixelPath, AffineTransform::translation(float(currentXPixel) * xPixelSize, float(currentYPixel) * yPixelSize));
-        
-        
-        /*
-        // used to be: if (roundedButton.getToggleState()) {
-        
-        if (myRoundednessSlider.getValue() == 0.0) {
-            g.fillRoundedRectangle(
-                (float(currentXPixel) * xPixelSize) + float(XOffset),  // x
-                (float(currentYPixel) * yPixelSize) + float(Offset),   // y
-                xPixelSize + addXPixels,  // width
-                yPixelSize + addYPixels,  // height
-                cornerSize); // roundness
-        }
-        else {
-            g.fillRect (
-                (float(currentXPixel) * xPixelSize) + float(XOffset),  // x
-                (float(currentYPixel) * yPixelSize) + float(Offset),  // y
-                xPixelSize + addXPixels,  // width
-                yPixelSize + addYPixels); // height
-        }
-         */
-        
-        //MOVE CURSOR
-        if ((currentXPixel + 1) < xImgPixels) {
-            currentXPixel ++;
-            currentScanlinePixel ++;
-        }
-        else {
-            currentXPixel = 0;
-            if ((currentYPixel + 1) < yImgPixels) {
-                currentYPixel ++;
-                currentScanlinePixel ++;
-            }
-            else {
-                currentYPixel = 0;
-                currentScanlinePixel = 0;
-            }
-                    
-        }
-        
-        
-        guiLoopNumber ++;
-    } //that curly brace ends the while() loop. ik its wierd, just deal with it.
 
 //    g.setColour(Colours::red);
 //    g.fillRect(connectingLine1.getBounds());
@@ -508,7 +373,7 @@ void MainComponent::resized() {
     
 
     
-    float knobRescale = getWidth() * (1.0/600.0);
+    float knobRescale = pluginWidth * (1.0/600.0);
 
     displayBorderPixels = Offset * displayBorderFactor;
 
@@ -528,6 +393,8 @@ void MainComponent::resized() {
                            settingsMenuButton.getHeight() - (Offset / 10));
     
     
+    scanlineVisualizer.setBounds(Offset, Offset, pluginWidth - (Offset * 2), pluginWidth - (Offset * 2));
+    
     
 //    widthKnob.setBounds(Offset, (yPixelSize * yImgPixels) + Offset, knobSize * knobRescale, knobSize * knobRescale);
     
@@ -537,6 +404,8 @@ void MainComponent::resized() {
                       25 * knobRescale);
     
     widthKnob.setBounds(Offset, XPixels.getY() + XPixels.getHeight() - (5 * knobRescale), knobSize * knobRescale, knobSize * knobRescale);
+    
+    xCyclesKnob.setBounds(Offset, XPixels.getY() + XPixels.getHeight() - (5 * knobRescale), knobSize * knobRescale, knobSize * knobRescale);
     
     YPixels.setBounds(Offset,
                       widthKnob.getY() + widthKnob.getHeight() + (10 * knobRescale),
@@ -647,8 +516,8 @@ void MainComponent::resized() {
 void MainComponent::updateLogoColor(Drawable* d, DrawableButton* b, Colour logo, Colour hy)
 {
         //these are the colors of the SVG logo.
-        d->replaceColour(Colour::fromFloatRGBA(1, 0, 0, 1), hy);
-        d->replaceColour(Colour::fromFloatRGBA(0, 1, 0, 1), logo);
+        d->replaceColour(Colour::fromFloatRGBA(1, 0, 0, 1), hy); //color for the hyphen
+        d->replaceColour(Colour::fromFloatRGBA(0, 1, 0, 1), logo); //color for the main text
 };
 
 void MainComponent::drawLines (Graphics& g) {
@@ -698,68 +567,61 @@ void MainComponent::knobSettings(Slider& s)
     s.setColour(Slider::textBoxBackgroundColourId, myLookAndFeel.pointerColourDarker);
     
     
-    /*
-    //Don't need these definitions anymore, since I wrote a lookAndFeel class
-    s.setColour(CaretComponent::ColourIds::caretColourId,
-                //Colour::fromHSV (0.0f, 0.0f, 0.75f, 1.0f));
-                Colour::fromHSV (1.0f, 0.4f, 0.75f, 1.0f));
-    
-        s.setColour(Slider::thumbColourId, Colour::fromHSV (0.0f, 0.0f, 0.6f, 1.0f));
-        s.setColour(Slider::rotarySliderFillColourId, Colour::fromHSV (0.0f, 0.0f, 0.5f, 1.0f));
-        s.setColour(Slider::rotarySliderOutlineColourId, Colour::fromHSV (0.0f, 0.0f, 0.3f, 1.0f));
-    */
-    
 };
 
 
 void MainComponent::pixelKnobSettings (Slider& s) {
-        //lamba function to stop it from showing decimals
+        //lambda function to stop it from showing decimals
         s.textFromValueFunction = [] (double val){
             int i = static_cast<int>(val);
             return String(i);
         };
     //    s.setNumDecimalPlacesToDisplay(1);
     
-    s.setRange(minPixels, maxPixels);
-    s.setValue(defaultPixels);
-    s.setTextValueSuffix (" px");
+    //s.setRange(pointerToAudioProcessor->minPixels, pointerToAudioProcessor->maxPixels);
     
 };
 
 
-
+/*
 
 void MainComponent::colourChannelKnobSettings (Slider& s) {
     
 
-    s.setRange(-200, 200);
-    s.setValue(100);
+    //s.setRange(-1 * pointerToAudioProcessor->maxMult, pointerToAudioProcessor->maxMult);
     s.setNumDecimalPlacesToDisplay(1);
     s.setTextValueSuffix (" %");
      
     
 };
+ */
+
 
 
 void MainComponent::sliderValueChanged (Slider* s) {
     if (s == &heightKnob){
-        yImgPixels = int(s->getValue());
-        imgPixels = xImgPixels * yImgPixels;
+        imgPixels = xImgPixels * s->getValue();
+        theSound.clear();
         theSound.setSize(2, imgPixels);
     }
     else if (s == &widthKnob){
         xImgPixels = int(s->getValue());
-        imgPixels = xImgPixels * yImgPixels;
-        theSound.setSize(2, xImgPixels * yImgPixels);
+        //*pointerToAudioProcessor->xPixelsParam = xImgPixels;
+        imgPixels = xImgPixels * heightKnob.getValue();
+        theSound.clear();
+        theSound.setSize(2, imgPixels);
+    }
+    else if (s == &xCyclesKnob){
+        
     }
     else if (s == &channelKnob1){
-        channelKnobValue[0] = (s->getValue() / 100.0);
+        channelKnobValue[0] = (s->getValue() / 100); //percentage perschmentage.
     }
     else if (s == &channelKnob2){
-        channelKnobValue[1] = (s->getValue() / 100.0);
+        channelKnobValue[1] = (s->getValue() / 100);
     }
     else if (s == &channelKnob3){
-        channelKnobValue[2] = (s->getValue() / 100.0);
+        channelKnobValue[2] = (s->getValue() / 100);
     }
 };
 
@@ -783,14 +645,32 @@ void MainComponent::comboBoxChanged (ComboBox *c) {
 
 
 void MainComponent::buttonClicked (Button* b) {
+    if (b == &settingsMenuButton) {
+        if (settingsMenuButton.getToggleState()) {//true means the button is 'pressed down' and midi should be on.
+            widthKnob.setVisible(false);
+            xCyclesKnob.setVisible(true);
 
+            //widthKnob.setRange(pointerToAudioProcessor->minCycles, pointerToAudioProcessor->maxCycles);
+            //widthKnob.setValue(*(pointerToAudioProcessor->xCyclesParam));
+            XPixels.setText("X CYCLES", dontSendNotification);
+            //ui when midi is enabled. display a whole number of wavecycle(s) (based on midi nore) per line (x-axis).
+        }
+        else {
+            widthKnob.setVisible(true);
+            xCyclesKnob.setVisible(false);
+            //widthKnob.setRange(pointerToAudioProcessor->minPixels, pointerToAudioProcessor->maxPixels);
+            //widthKnob.setValue(*pointerToAudioProcessor->xPixelsParam);
+            XPixels.setText("X PIXELS", dontSendNotification);
+        }
+    }
 }
 
 
 void MainComponent::buttonStateChanged (Button* b) {
 
     if (b == &colorMode) {
-        if (!colorMode.getToggleState())
+        //*pointerToAudioProcessor->colorModeParam = colorMode.getToggleState();
+        if (!b->getToggleState())
         {
             RGBLabel.setColour(Label::textColourId, myLookAndFeel.mainTextColour);
             HSVLabel.setColour(Label::textColourId, myLookAndFeel.greyedTextColour);

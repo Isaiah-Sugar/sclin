@@ -20,7 +20,7 @@
 class SclinAudioProcessorEditor  : public AudioProcessorEditor//, public Slider::Listener
 {
 public:
-    SclinAudioProcessorEditor (SclinAudioProcessor&, RingBuffer<float>*, int*, bool*);
+    SclinAudioProcessorEditor (SclinAudioProcessor*, RingBuffer<float>*, float*, bool*);
     ~SclinAudioProcessorEditor();
 
     //==============================================================================

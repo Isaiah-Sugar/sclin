@@ -10,6 +10,10 @@
       <FILE id="yZgcR0" name="sclin full logo seperate colors.svg" compile="0"
             resource="1" file="Source/sclin full logo seperate colors.svg"/>
       <FILE id="xPW3RH" name="snowflake.svg" compile="0" resource="1" file="Source/snowflake.svg"/>
+      <FILE id="V1ABLJ" name="ScanlineVisualizerComponent.h" compile="0"
+            resource="0" file="Source/ScanlineVisualizerComponent.h"/>
+      <FILE id="prnMav" name="ScanlineVisualizerComponent.cpp" compile="1"
+            resource="0" file="Source/ScanlineVisualizerComponent.cpp"/>
       <FILE id="HIsDZB" name="PluginProcessor.cpp" compile="1" resource="0"
             file="Source/PluginProcessor.cpp"/>
       <FILE id="D6NDC4" name="PluginProcessor.h" compile="0" resource="0"

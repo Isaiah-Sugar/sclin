@@ -12,8 +12,8 @@
 #include "PluginEditor.h"
 
 //==============================================================================
-SclinAudioProcessorEditor::SclinAudioProcessorEditor (SclinAudioProcessor& p, RingBuffer<float>* r, int* currentNotePointer, bool* isOnPointer)
-: AudioProcessorEditor (&p), mainComponent(p, r, currentNotePointer, isOnPointer), processor (p)
+SclinAudioProcessorEditor::SclinAudioProcessorEditor (SclinAudioProcessor* p, RingBuffer<float>* r, float* currentFreqPointer, bool* isOnPointer)
+: AudioProcessorEditor (p), mainComponent(p, r, currentFreqPointer, isOnPointer), processor (*p)
 {
     // Make sure that before the constructor has finished, you've set the
     // editor's size to whatever you need it to be.

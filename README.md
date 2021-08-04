@@ -46,10 +46,11 @@ but if you've got a compiled version, you just have to move the .vst3 and .au fi
 # compile:
 
 #### if you're familiar with the JUCE library
-* Just know that I'm not doing anything strange, it's literally just a Projucer project and some source files. WHY ARE YOU EVEN READING THIS JUST BUILD IT ALREADY
+* you'll need to change the `MainDir` object (in `MainComponent.h`) to the path of the `sc-lin` folder (parent directory of this file). references to svg files are made with these.
 
 
 #### for everyone else
 * You'll need to have the JUCE library installed to build this. It comes with the Projucer, which creates files for several IDE's. Then you can build from there. I use Xcode because I'm filthy and use macos. Projucer deals with the IDE so I don't have to, which I appreciate. So, long story short, you open the .jucer file with Projucer, then it exports to visual studio or xcode, and it should set everything up to build for you. You might have to figure out how to choose the 'release' configuration, I'm still figuring that part out. I think it's an IDE thing. 
 
 * JUCE library: https://juce.com/get-juce ('personal plan' is free, you can build with that)
+* go in MainComponent.h and change the line `const File MainDir = File("/Users/isaiahsugar/programming/audio/plugins/sc-lin/sc-lin");` to the `sc-lin` folder you downloaded. (parent directory of this file)

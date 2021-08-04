@@ -30,7 +30,7 @@ public:
 
 
 
-class SclinAudioProcessor  : public AudioProcessor, public Slider::Listener, public Button::Listener, public ComboBox::Listener
+class SclinAudioProcessor  : public AudioProcessor
 {
 public:
     //==============================================================================
@@ -52,14 +52,14 @@ public:
 
     //==============================================================================
     AudioProcessorEditor* createEditor() override;
-    
+    /*
     void sliderValueChanged (Slider* s) override;
     
     void comboBoxChanged (ComboBox *c) override;
     
     void buttonClicked (Button* b) override;
     void buttonStateChanged (Button* b) override;
-    
+    */
     
     bool hasEditor() const override;
 
@@ -84,47 +84,43 @@ public:
     
 
     
-    Slider *widthKnobPointer;
-    Slider *heightKnobPointer;
-    
-    int masterWidthValue;
-    int masterHeightValue;
+    AudioProcessorValueTreeState myTreeState;
+    //parameters - xpixels, ypixels, xcycles, ycycles, rgb/hsv, redsource, redmult, greensource, greenmult, bluesource, bluemult, roundness, midion, freeze
     
     
-    ToggleButton *colorModePointer;
-    bool masterColorModeState;
+    static const int defaultPixels;//default value for pixel knobs (x pixels / y pixels)
+    static const int defaultCycles;//default value for pixel knobs (x pixels / y pixels)
+    static const bool defaultColorMode;
+    static const int defaultMult;
+    static const bool defaultMidiState;
     
+    static const int maxPixels; //maximum of each pixel knob (x pixels / y pixels)
+    static const int minPixels; //minimum of each pixel knob (x pixels / y pixels)
+    static const int maxCycles; //maximum of each pixel knob (x pixels / y pixels)
+    static const int minCycles; //minimum of each pixel knob (x pixels / y pixels)
     
-    ComboBox *channelMode1Pointer;
-    ComboBox *channelMode2Pointer;
-    ComboBox *channelMode3Pointer;
+    static const int maxMult; //maximum value for the channel multipliers, minimum is just negative.
     
-    int masterChannelMode1Value;
-    int masterChannelMode2Value;
-    int masterChannelMode3Value;
-    
-    
-    Slider *channelKnob1Pointer;
-    Slider *channelKnob2Pointer;
-    Slider *channelKnob3Pointer;
-
-    float masterChannelKnob1Value;
-    float masterChannelKnob2Value;
-    float masterChannelKnob3Value;
-
     
 private:
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SclinAudioProcessor)
     
+    juce::AudioProcessorValueTreeState::ParameterLayout createParameters();
+    juce::String channelKnobsStringFromValue(float, int);
+    
     RingBuffer<float>* ringBuffer;
     
+    static const juce::StringArray colorSourceOptionStrings;
+
+
     const int representsNoData = -50;
     int currentMidiNote = representsNoData;
     bool isOn = false;
     static const int midiBufferSize = 24; // the number of notes to store, turning midi into one monophonic note.
     int currentMidi[midiBufferSize];
     int lastFilled = 0;
+    float currentNoteCycleLength;
 
     unsigned long numBuffers;
 };

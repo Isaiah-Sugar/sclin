@@ -14,6 +14,9 @@
 #include "RingBuffer.h"
 #include "MyLookAndFeel.h"
 #include "IsaiahCustomComponents.h"
+#include "ScanlineVisualizerComponent.h"
+
+#include "PluginProcessor.h" //i added this but it maybe shouldn't be here. The goal was to allow this to inherit the SclinAudioProcessor class so it could get data from the parameters.
 
 //==============================================================================
 
@@ -28,7 +31,7 @@
 class MainComponent  final  : public Component, public Slider::Listener, public Button::Listener, public ComboBox::Listener, private Timer
 {
 public:
-    MainComponent(AudioProcessor& processor, RingBuffer<float>*, int*, bool*);
+    MainComponent(SclinAudioProcessor* processor, RingBuffer<float>*, float*, bool*);
     ~MainComponent();
 
     
@@ -45,9 +48,9 @@ public:
     
     void knobSettings (Slider& s);
     void pixelKnobSettings (Slider& s);
-    void colourChannelKnobSettings (Slider& s);
+//    void colourChannelKnobSettings (Slider& s);
     
-    int knobSize = 100;
+
     void sliderValueChanged (Slider* slider) override;
     
     void comboBoxChanged (ComboBox *c) override;
@@ -61,19 +64,30 @@ public:
     
 //    void drawColorModeButton(Graphics& g, TextButton& b);
     
-    float ratio = .74;
-    int componentDefaultSize = 550;
+    int knobSize = 100;
+    const float ratio = .74;
+    const int componentDefaultSize = 550;
     
     int pluginWidth = componentDefaultSize;
     int pluginHeight = componentDefaultSize / ratio;
     
-    static const int maxPixels = 256; //maximum of each pixel knob (x pixels / y pixels)
-    static const int minPixels = 1;
-    static const int defaultPixels = 32;
 
-    int xImgPixels = defaultPixels;
-    int yImgPixels = defaultPixels;
-    int imgPixels = xImgPixels * yImgPixels;
+
+
+    
+    int xImgPixels;
+    // int yImgPixels = defaultPixels; //was used pre-parameter
+    int imgPixels;
+    //int keepXImgPixels = defaultPixels; //was used pre-parameter
+    
+    // 
+    /*
+    int xKnobPosMidi
+    int yKnobPosMidi
+    int xKnobPosNoMidi
+    int yKnobPosNoMidi
+     */
+//    int xCycles = 1;
     
     static const int averageNumber = 1;
     
@@ -109,9 +123,10 @@ public:
     RoundednessSlider myRoundednessSlider;
     DrawableButton freezeButton;
     
-
+    ScanlineVisualizerComponent scanlineVisualizer;
     
     Slider widthKnob;
+    Slider xCyclesKnob;
     Label XPixels;
     Slider heightKnob;
     Label YPixels;
@@ -142,6 +157,23 @@ public:
     ConnectingLine connectingLine2;
     ConnectingLine connectingLine3;
 
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> midiButtonAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> roundnessSliderAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> freezeButtonAttachment;
+    
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> xPixelsSliderAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> xCyclesSliderAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> yPixelsSliderAttachment;
+    
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> colorModeButtonAttachment;
+    
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> channelMode1ComboAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> channelMode2ComboAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> channelMode3ComboAttachment;
+    
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> channelKnob1SliderAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> channelKnob2SliderAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> channelKnob3SliderAttachment;
     
     
 private:
@@ -153,19 +185,14 @@ private:
     bool isRounded = false;
     
     
-    int cornerSize = Offset / 10;
-    
-    
     float xDrawPixels = pluginWidth * offsetPercentInverse;
     float yDrawPixels = pluginWidth * offsetPercentInverse;
     
 
 
-    float xPixelSize = xDrawPixels/xImgPixels;
-    float yPixelSize = yDrawPixels/yImgPixels;
+    float xPixelSize;
+    float yPixelSize;
     
-    float addXPixels;
-    float addYPixels;
 
     int channelMode[3] = {1, 1, 1};
     float channelKnobValue[3] = {1.0, 1.0, 1.0};
@@ -174,12 +201,12 @@ private:
     float displayBorderPixels = Offset * displayBorderFactor;
     Rectangle <float> outerSquare = Rectangle <float> (Offset - (Offset * 0.1), Offset - (Offset * 0.1), int(xDrawPixels) + 1 + (Offset * 0.2), int(yDrawPixels) + 1 + (Offset * 0.2));
     
-    int* localCurrentNotePointer;
-    int localPreviousNote;
+    float* localCurrentFreqPointer;
+    float localPreviousFreq;
     bool* localIsOnPointer;
     
     //unsigned long debugSampleCountThing = 0;
     
-    AudioBuffer<float> theSound = AudioBuffer<float>(2, imgPixels * averageNumber);
-    
+    AudioBuffer<float> theSound;
+    SclinAudioProcessor* pointerToAudioProcessor; //used to store parent audioProcessor to use later
 };

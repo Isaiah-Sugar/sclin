@@ -25,7 +25,21 @@ MyListener::~MyListener(){
 };
 
  */
+const int SclinAudioProcessor::defaultPixels = 32;//default value for pixel knobs (x pixels / y pixels)
+const int SclinAudioProcessor::defaultCycles = 2;//default value for pixel knobs (x pixels / y pixels)
+const bool SclinAudioProcessor::defaultColorMode = false;
+const int SclinAudioProcessor::defaultMult = 100;
+const bool SclinAudioProcessor::defaultMidiState = false;
  
+const int SclinAudioProcessor::maxPixels = 256; //maximum of each pixel knob (x pixels / y pixels)
+const int SclinAudioProcessor::minPixels = 1; //minimum of each pixel knob (x pixels / y pixels)
+const int SclinAudioProcessor::maxCycles = 10; //maximum of each pixel knob (x pixels / y pixels)
+const int SclinAudioProcessor::minCycles = 1; //minimum of each pixel knob (x pixels / y pixels)
+ 
+const int SclinAudioProcessor::maxMult = 200; //maximum value for the channel multipliers, minimum is just negative.
+
+
+const juce::StringArray SclinAudioProcessor::colorSourceOptionStrings = juce::StringArray{"AVG", "LEFT", "RIGHT", "KNOB"};
 
 
 //==============================================================================
@@ -38,7 +52,8 @@ SclinAudioProcessor::SclinAudioProcessor()
                       #endif
                        .withOutput ("Output", AudioChannelSet::stereo(), true)
                      #endif
-                       )
+                       ),
+                       myTreeState(*this, nullptr, "Parameters", createParameters()) //createParameters() is my function. based on a tutorial from The Audio Programmer youtube channel
 #endif
 {
 //    myEditor = NULL;
@@ -46,8 +61,39 @@ SclinAudioProcessor::SclinAudioProcessor()
     
 
     
-    ringBuffer = new RingBuffer <float> (2, MainComponent::maxPixels * MainComponent::maxPixels * MainComponent::averageNumber * 2); //maxPixels is twice because x * y, averageNumber currently does nothing (it's 1), and 2 is so we can store 2 frames because edge cases. '_'
+    ringBuffer = new RingBuffer <float> (2, maxPixels * maxPixels * MainComponent::averageNumber * 2); //maxPixels is twice because x * y, averageNumber currently does nothing (it's 1), and 2 is so we can store 2 frames because edge cases. '_'
     
+    //AudioProcessor::addListener(this);
+    /*
+    
+    //parameters for x and y resolutions
+    xPixelsParam ("xpixels", "X Pixels", minPixels, maxPixels, defaultPixels) ;
+    myTreeState.createAndAddParameter(std::unique_ptr<RangedAudioParameter>());
+    addParameter(yPixelsParam = new AudioParameterInt("ypixels", "Y Pixels", minPixels, maxPixels, defaultPixels));
+    addParameter(xCyclesParam = new AudioParameterInt("xcycles", "X Cycles", minCycles, maxCycles, defaultCycles));
+    
+    addParameter(colorModeParam = new AudioParameterBool("rgbhsv", "RGB/HSV", defaultColorMode));
+    
+
+
+    //these are the parameters for all the per-channel options. Sources and multipliers for every color channel. In HSV mode, they shouldn't actually be red green and blue, but hue saturation and value. This behavior should be possible to implement - basically identical to switching between midi and no midi modes, and keeping values properly.
+    //---------- NOTE ----------
+    //      the multiplier's ranges are defined in a rather janky way, but i was having trouble getting a NormalisableRange object defined in the MainComponent class and still build so i basically just copy pasted that part from the juce audio parameter tutorial.
+    addParameter(redSourceParam = new AudioParameterChoice("redSourceParam", "Red Source", colorSourceOptionStrings, 1));
+    addParameter(redMultParam = new AudioParameterFloat("redMultParam", "Red Multiplier", juce::NormalisableRange<float> (-1 * maxMult, maxMult), defaultMult));
+    
+    addParameter(greenSourceParam = new AudioParameterChoice("greenSourceParam", "Green Source", colorSourceOptionStrings, 1));
+    addParameter(greenMultParam = new AudioParameterFloat("greenMultParam", "Green Multiplier", juce::NormalisableRange<float> (-1 * maxMult, maxMult), defaultMult));
+    
+    addParameter(blueSourceParam = new AudioParameterChoice("blueSourceParam", "Blue Source", colorSourceOptionStrings, 1));
+    addParameter(blueMultParam = new AudioParameterFloat("blueMultParam", "Blue Multiplier", juce::NormalisableRange<float> (-1 * maxMult, maxMult), defaultMult));
+
+
+    addParameter(roundnessParam = new AudioParameterFloat("roundnessParam", "Roundness", 0.0, 1.0, 0.0));
+    addParameter(midiOnParam = new AudioParameterBool("midiOnParam", "Midi Toggle", defaultMidiState));
+     addParameter(freezeParam = new AudioParameterBool("freezeParam", "Freeze", false));
+    */
+    /*
     masterWidthValue = MainComponent::defaultPixels;
     masterHeightValue = MainComponent::defaultPixels;
     
@@ -60,7 +106,7 @@ SclinAudioProcessor::SclinAudioProcessor()
     masterChannelKnob1Value = 100.0;
     masterChannelKnob2Value = 100.0;
     masterChannelKnob3Value = 100.0;
-    
+    */
     
 }
 
@@ -210,6 +256,7 @@ void SclinAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer& 
                 lastFilled++; //we've just added a note.
                 
                 currentMidiNote = m.getNoteNumber(); //update the main note value.
+                currentNoteCycleLength = this->getSampleRate()/MidiMessage::getMidiNoteInHertz(currentMidiNote);
             }
             else if (m.isNoteOff()) {
                 for (int found = 0; found < lastFilled; found++) { //looping up to the last note
@@ -217,15 +264,17 @@ void SclinAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer& 
                         for (int gap = found; gap < (lastFilled - 1); gap++) { //loop through notes, starting with the one to be removed
                             currentMidi[gap] = currentMidi[gap + 1]; //push data back, so the note being removed is overwritten.
                         }
-                        lastFilled--; //there's one less note. it's always just one note being removed, since this is run per midi message.
-                        currentMidi[lastFilled] = representsNoData; //lastFilled should not have data in it, though all this copying has left it populated.
-                        currentMidiNote = currentMidi[lastFilled - 1];
+                    lastFilled--; //there's one less note. it's always just one note being removed, since this is run per midi message.
+                    currentMidi[lastFilled] = representsNoData; //lastFilled should not have data in it, though all this copying has left it populated.
+                    currentMidiNote = currentMidi[lastFilled - 1];
                     }
                 }
-            if (currentMidi[0] == representsNoData)
-                isOn = false;
+                if (currentMidi[0] == representsNoData)
+                    isOn = false;
+                }
+                else
+                    currentNoteCycleLength = this->getSampleRate()/MidiMessage::getMidiNoteInHertz(currentMidiNote);
             }
-        }
                 
                 //the sample position is message.samplePosition;
        
@@ -297,60 +346,6 @@ void SclinAudioProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer& 
 //==============================================================================
 
 
-// terrible terrible terrible
-// i was trying to rig up some kind of way for the stuff to not change every time the editor is redrawn
-// hopefully i'll get around to rewriting this when everything becomes daw parameters
-
-void SclinAudioProcessor::sliderValueChanged (Slider* s)
-{
-    if (s == widthKnobPointer)
-        masterWidthValue = s->getValue();
-    else if (s == heightKnobPointer)
-        masterHeightValue = s->getValue();
-    else if (s == channelKnob1Pointer)
-        masterChannelKnob1Value = s->getValue();
-    else if (s == channelKnob2Pointer)
-        masterChannelKnob2Value = s->getValue();
-    else if (s == channelKnob3Pointer)
-        masterChannelKnob3Value = s->getValue();
-};
-
-
-void SclinAudioProcessor::comboBoxChanged (ComboBox *c) {
-    if (c == channelMode1Pointer) {
-        masterChannelMode1Value = c->getSelectedId();
-        
-    }
-    
-    else if (c == channelMode2Pointer){
-        masterChannelMode2Value = c->getSelectedId();
-        
-    }
-    
-    else if (c == channelMode3Pointer){
-        masterChannelMode3Value = c->getSelectedId();
-        
-    }
-    
-};
-
-void SclinAudioProcessor::buttonClicked (Button* b) {
-    
-    
-};
-
-void SclinAudioProcessor::buttonStateChanged (Button* b) {
-    
-    if (b == colorModePointer) {
-        masterColorModeState = b->getToggleState();
-        
-    }
-    
-};
-
-
-
-
 
 bool SclinAudioProcessor::hasEditor() const
 {
@@ -361,53 +356,7 @@ AudioProcessorEditor* SclinAudioProcessor::createEditor()
 {
 
 
-    SclinAudioProcessorEditor *myEditor = new SclinAudioProcessorEditor (*this, ringBuffer, &currentMidiNote, &isOn);
-    
-
-    //these are all the editor values that need to persist between the editor being closed and reopened.
-    
-    
-    widthKnobPointer = &myEditor->mainComponent.widthKnob;
-    widthKnobPointer->addListener(this);
-    widthKnobPointer->setValue(masterWidthValue);
-    
-    heightKnobPointer = &myEditor->mainComponent.heightKnob;
-    heightKnobPointer->addListener(this);
-    heightKnobPointer->setValue(masterHeightValue);
-    
-    
-     
-    
-    channelKnob1Pointer = &myEditor->mainComponent.channelKnob1;
-    channelKnob1Pointer->addListener(this);
-    channelKnob1Pointer->setValue(masterChannelKnob1Value);
-    
-    channelKnob2Pointer = &myEditor->mainComponent.channelKnob2;
-    channelKnob2Pointer->addListener(this);
-    channelKnob2Pointer->setValue(masterChannelKnob2Value);
-    
-    channelKnob3Pointer = &myEditor->mainComponent.channelKnob3;
-    channelKnob3Pointer->addListener(this);
-    channelKnob3Pointer->setValue(masterChannelKnob3Value);
-    
-    
-    colorModePointer = &myEditor->mainComponent.colorMode;
-    colorModePointer->addListener(this);
-    colorModePointer->setToggleState(masterColorModeState, dontSendNotification);
-    colorModePointer->setState(Button::buttonOver);
-
-
-    channelMode1Pointer = &myEditor->mainComponent.channelMode1;
-    channelMode1Pointer->addListener(this);
-    channelMode1Pointer->setSelectedId(masterChannelMode1Value);
-    
-    channelMode2Pointer = &myEditor->mainComponent.channelMode2;
-    channelMode2Pointer->addListener(this);
-    channelMode2Pointer->setSelectedId(masterChannelMode2Value);
-    
-    channelMode3Pointer = &myEditor->mainComponent.channelMode3;
-    channelMode3Pointer->addListener(this);
-    channelMode3Pointer->setSelectedId(masterChannelMode3Value);
+    SclinAudioProcessorEditor *myEditor = new SclinAudioProcessorEditor (this, ringBuffer, &currentNoteCycleLength, &isOn);
     
     
     
@@ -439,4 +388,52 @@ void SclinAudioProcessor::setStateInformation (const void* data, int sizeInBytes
 AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new SclinAudioProcessor();
+}
+
+
+juce::AudioProcessorValueTreeState::ParameterLayout SclinAudioProcessor::createParameters()
+{
+    std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
+    
+    
+    params.push_back(std::make_unique<AudioParameterBool>("midienable", "Midi On", false));
+    params.push_back(std::make_unique<AudioParameterFloat>("roundness", "Roundness", 0.0f, 1.0f, 1.0f));
+    params.push_back(std::make_unique<AudioParameterBool>("freeze", "Freeze", false));
+    
+    
+    params.push_back(std::make_unique<AudioParameterInt>("xpixels", "X Pixels", minPixels, maxPixels, defaultPixels));
+    params.push_back(std::make_unique<AudioParameterInt>("xcycles", "X Cycles", minCycles, maxCycles, defaultCycles));
+    params.push_back(std::make_unique<AudioParameterInt>("ypixels", "Y Pixels", minPixels, maxPixels, defaultPixels));
+
+    
+    params.push_back(std::make_unique<AudioParameterBool>("colormode", "RGB / HSV", false));
+
+    params.push_back(std::make_unique<AudioParameterChoice>("channelmode1", "Channel 1 Mode", colorSourceOptionStrings, 0));
+    params.push_back(std::make_unique<AudioParameterChoice>("channelmode2", "Channel 2 Mode", colorSourceOptionStrings, 0));
+    params.push_back(std::make_unique<AudioParameterChoice>("channelmode3", "Channel 3 Mode", colorSourceOptionStrings, 0));
+
+
+    
+    params.push_back(std::make_unique<AudioParameterFloat>("channelknob1", "Channel 1 Multiplier", NormalisableRange<float>(-200.0f, 200.0f), 100.0f,
+    String(), AudioProcessorParameter::genericParameter,
+    [this](float value, int maximumStringLength) -> String { return String(channelKnobsStringFromValue(value, 5)); }));
+    params.push_back(std::make_unique<AudioParameterFloat>("channelknob2", "Channel 2 Multiplier", NormalisableRange<float>(-200.0f, 200.0f), 100.0f,
+    String(), AudioProcessorParameter::genericParameter,
+    [this](float value, int maximumStringLength) -> String { return String(channelKnobsStringFromValue(value, 5)); }));
+    params.push_back(std::make_unique<AudioParameterFloat>("channelknob3", "Channel 3 Multiplier", NormalisableRange<float>(-200.0f, 200.0f), 100.0f,
+    String(), AudioProcessorParameter::genericParameter,
+    [this](float value, int maximumStringLength) -> String { return String(channelKnobsStringFromValue(value, 5)); }));
+ 
+
+    return {params.begin(), params.end()};
+}
+
+juce::String SclinAudioProcessor::channelKnobsStringFromValue(float value, int maxLength) {
+    //a lambda function for the channelKnobs (the multipliers), giving the % suffix, and fixing the number of decimals
+    String valueAsString = String(value);
+    valueAsString = valueAsString.dropLastCharacters(valueAsString.length() - maxLength); //remove characters from the end, above the maxLength.
+    valueAsString = valueAsString.trimCharactersAtEnd(StringRef(".")); //if the last character is a period, remove it. Matters for negative numbers with 3 digits.
+    valueAsString += "%";
+    return valueAsString;
+    
 }
