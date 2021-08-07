@@ -9,6 +9,8 @@
 //
 //edited by Isaiah Sugar
 //I (Isaiah) also wrote the availableSamples function
+//and the catchup function
+//and the skipSamples function
 
 #pragma once
 
