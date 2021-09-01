@@ -20,7 +20,10 @@ connectingLine2(myLookAndFeel.pointerColour, myLookAndFeel.backgroundColour),
 connectingLine3(myLookAndFeel.pointerColour, myLookAndFeel.backgroundColour),
 myRoundednessSlider(myLookAndFeel.greyedTextColour, myLookAndFeel.backgroundColour),
 freezeButton("", DrawableButton::ButtonStyle::ImageStretched),
-scanlineVisualizer(&theSound, &xImgPixels, dynamic_cast<AudioParameterInt*>(processor->myTreeState.getParameter("ypixels")), dynamic_cast<AudioParameterFloat*>(processor->myTreeState.getParameter("roundness")), channelKnobValue, channelMode, dynamic_cast<AudioParameterBool*>(processor->myTreeState.getParameter("colormode")))
+fullscreenButton("", DrawableButton::ButtonStyle::ImageStretched),
+midiButton("", DrawableButton::ButtonStyle::ImageStretched),
+scanlineVisualizer(&theSound, &xImgPixels, dynamic_cast<AudioParameterInt*>(processor->myTreeState.getParameter("ypixels")), dynamic_cast<AudioParameterFloat*>(processor->myTreeState.getParameter("roundness")), channelKnobValue, channelMode, dynamic_cast<AudioParameterBool*>(processor->myTreeState.getParameter("colormode"))),
+the_actual_fullscreen_visualizer(nullptr)
 {
     startTimerHz(60);
     r->catchup();
@@ -63,12 +66,7 @@ scanlineVisualizer(&theSound, &xImgPixels, dynamic_cast<AudioParameterInt*>(proc
     
     roundnessSliderAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(processor->myTreeState, "roundness", myRoundednessSlider);
     
-    freezeIconDrawablePressed = Drawable::createFromSVGFile(freezeIconSVG);
-    freezeIconDrawablePressed->setTransformToFit(Rectangle<float>(0, 0, 100, 100), RectanglePlacement::fillDestination);
-    //freezeIconDrawablePressed->replaceColour(Colour::fromFloatRGBA(0, 0, 0, 0), myLookAndFeel.darkTrim);
-    
-    freezeIconDrawablePressed = Drawable::createFromSVGFile(freezeIconSVG);
-    freezeIconDrawablePressed->setTransformToFit(Rectangle<float>(0, 0, 100, 100), RectanglePlacement::fillDestination);
+
     freezeIconDrawablePressed->replaceColour(Colour::fromFloatRGBA(0, 0, 0, 1), Colour::fromFloatRGBA(1, 1, 1, 1));
     
     
@@ -80,6 +78,27 @@ scanlineVisualizer(&theSound, &xImgPixels, dynamic_cast<AudioParameterInt*>(proc
     freezeButtonAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(processor->myTreeState, "freeze", freezeButton);
     
     
+    fullscreenIconDrawableNormal->replaceColour(Colour::fromFloatRGBA(0, 0, 0, 1), myLookAndFeel.darkTrim);
+    fullscreenIconDrawablePressed->replaceColour(Colour::fromFloatRGBA(0, 0, 0, 1), myLookAndFeel.greyedTextColour);
+    
+    midiIconDrawableNormal->setTransformToFit(Rectangle<float>(0, 0, 100, 100), RectanglePlacement::fillDestination);
+    midiIconDrawablePressed->setTransformToFit(Rectangle<float>(0, 0, 100, 100), RectanglePlacement::fillDestination);
+    
+    
+    fullscreenButton.setClickingTogglesState(true);
+    fullscreenButton.setColour(DrawableButton::backgroundOnColourId, Colour::fromFloatRGBA(0, 0, 0, 0));
+    fullscreenButton.setImages(fullscreenIconDrawableNormal.get(), nullptr, nullptr, nullptr, fullscreenIconDrawablePressed.get());
+    fullscreenButton.addListener(this);
+    addAndMakeVisible(fullscreenButton);
+    
+    midiButton.setClickingTogglesState(true);
+    midiButton.setColour(DrawableButton::backgroundOnColourId, Colour::fromFloatRGBA(0, 0, 0, 0));
+    midiButton.setImages(midiIconDrawableNormal.get(), nullptr, nullptr, nullptr, midiIconDrawablePressed.get());
+    addAndMakeVisible(midiButton);
+    
+    
+    //FUTURE ISAIAH PLEASE GIVE THESE THINGS COLORS THANK YOU BYE
+    //PAST ISAIAH I AM DOING THIS NOW YOU ARE WELCOME
 
     addAndMakeVisible(scanlineVisualizer);
     
@@ -207,6 +226,15 @@ scanlineVisualizer(&theSound, &xImgPixels, dynamic_cast<AudioParameterInt*>(proc
     
     imgPixels = xImgPixels * heightKnob.getValue(); //at the end so the heightKnob will get connected to the parameter first
 
+    
+    
+    
+
+    the_actual_fullscreen_visualizer = nullptr;
+
+    
+    
+    
 };
 
 
@@ -215,6 +243,8 @@ scanlineVisualizer(&theSound, &xImgPixels, dynamic_cast<AudioParameterInt*>(proc
 void MainComponent::timerCallback() {
     repaint();
     scanlineVisualizer.repaint();
+    if (fullscreenButton.getToggleState())
+        the_actual_fullscreen_visualizer.get()->repaint(); //bro it's a unique_ptr
 };
 
 
@@ -244,14 +274,6 @@ void MainComponent::paint (Graphics& g) {
     
     g.fillAll (myLookAndFeel.backgroundColour);   // clear the background
 
-    /*
-    // simple display of incoming midi values
-    if (*localIsOnPointer){
-        g.setColour (Colours::white);
-        g.drawFittedText(std::to_string(*localCurrentFreqPointer), 0, 0, 200, 50, 50, .2);
-    }
-    */
-//    drawLines(g);
     
     xDrawPixels = pluginWidth * offsetPercentInverse;
     yDrawPixels = pluginWidth * offsetPercentInverse;
@@ -349,10 +371,6 @@ void MainComponent::paint (Graphics& g) {
     
 
 
-//    g.setColour(Colours::red);
-//    g.fillRect(connectingLine1.getBounds());
-//    std::printf("top: %d left: %d, width: %d, height: %d \n", connectingLine1.getY(), connectingLine1.getX(), connectingLine1.getWidth(), connectingLine1.getHeight());
-    
 }
 
 
@@ -378,19 +396,33 @@ void MainComponent::resized() {
     displayBorderPixels = Offset * displayBorderFactor;
 
 
-    settingsMenuButton.setBounds(Offset * 2, displayBorderPixels, pluginWidth - (Offset * 4), Offset - (displayBorderPixels * 3));
+    settingsMenuButton.setBounds((pluginWidth * 0.5) - (pluginWidth * 0.1), displayBorderPixels, (pluginWidth * 0.2), Offset - (displayBorderPixels * 3));
 
     
     myRoundednessSlider.setBounds(
-                                  settingsMenuButton.getX() + settingsMenuButton.getHeight() + (Offset / 20),
-                                  settingsMenuButton.getY() + (Offset / 20),
+                                  settingsMenuButton.getX() - settingsMenuButton.getHeight() - (Offset * .1) + (Offset / 20),
+                                  displayBorderPixels + (Offset / 20),
                                   settingsMenuButton.getHeight() - (Offset / 10),
                                   settingsMenuButton.getHeight() - (Offset / 10));
     
-    freezeButton.setBounds(settingsMenuButton.getX() + settingsMenuButton.getWidth() - (settingsMenuButton.getHeight() * 2) - (Offset / 20),
-                           settingsMenuButton.getY() + (Offset / 20),
-                           (settingsMenuButton.getHeight() - (Offset / 10)) * freezeIconAspect.x,
-                           settingsMenuButton.getHeight() - (Offset / 10));
+    freezeButton.setBounds(settingsMenuButton.getX() + settingsMenuButton.getWidth() + (Offset * .1) + (Offset / 30),
+                           displayBorderPixels + (Offset / 30),
+                           (settingsMenuButton.getHeight() - (Offset / 15)) * freezeIconAspect.x,
+                           settingsMenuButton.getHeight() - (Offset / 15));
+    
+    midiButton.setBounds(
+                         (myRoundednessSlider.getX() - settingsMenuButton.getHeight()) - (Offset * .1) + (Offset / 30),
+                         displayBorderPixels + (Offset / 30),
+                         settingsMenuButton.getHeight() - (Offset / 15),
+                         settingsMenuButton.getHeight() - (Offset / 15));
+    
+    fullscreenButton.setBounds(
+                               freezeButton.getX() + settingsMenuButton.getHeight() + (Offset * .2) + (Offset / 18),
+                               displayBorderPixels + (Offset / 18),
+                               settingsMenuButton.getHeight() - (Offset / 9),
+                               settingsMenuButton.getHeight() - (Offset / 9));
+    
+    
     
     
     scanlineVisualizer.setBounds(Offset, Offset, pluginWidth - (Offset * 2), pluginWidth - (Offset * 2));
@@ -661,6 +693,14 @@ void MainComponent::buttonClicked (Button* b) {
             //widthKnob.setRange(pointerToAudioProcessor->minPixels, pointerToAudioProcessor->maxPixels);
             //widthKnob.setValue(*pointerToAudioProcessor->xPixelsParam);
             XPixels.setText("X PIXELS", dontSendNotification);
+        }
+    }
+    else if (b == &fullscreenButton) {
+        if (b->getToggleState() == true) {
+            the_actual_fullscreen_visualizer = std::make_unique<VisualizerFullscreen>(&scanlineVisualizer);
+        }
+        else {
+            the_actual_fullscreen_visualizer.reset();
         }
     }
 }

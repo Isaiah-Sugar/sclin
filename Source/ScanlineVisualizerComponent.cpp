@@ -32,6 +32,22 @@ ScanlineVisualizerComponent::ScanlineVisualizerComponent(juce::AudioBuffer<float
      */
 }
 
+ScanlineVisualizerComponent::ScanlineVisualizerComponent(ScanlineVisualizerComponent* the_one_to_copy) {
+    theSound = the_one_to_copy->theSound;
+    
+    xImgPixels = the_one_to_copy->xImgPixels;
+    yImgPixels = the_one_to_copy->yImgPixels;
+    imgPixels = *xImgPixels * yImgPixels->get();
+    
+    roundness = the_one_to_copy->roundness;
+    
+    channelMultipliers = the_one_to_copy->channelMultipliers;
+    channelModes = the_one_to_copy->channelModes;
+    
+    colorMode = the_one_to_copy->colorMode;
+}
+
+
 ScanlineVisualizerComponent::~ScanlineVisualizerComponent()
 {
 }
@@ -230,4 +246,26 @@ void ScanlineVisualizerComponent::resized()
     // This method is where you should set the bounds of any child
     // components that your component contains..
 
+}
+
+
+
+
+
+
+
+
+VisualizerFullscreen::VisualizerFullscreen(class ScanlineVisualizerComponent * theVisuzlizerToCopy) : juce::DocumentWindow("visualizer_fullscreen", juce::Colour::fromHSV(0.0, 0.0, 0.0, 1.0), 0), theComponentWeAreUsing(theVisuzlizerToCopy) {
+    setFullScreen(true);
+    setVisible(true);
+    juce::Desktop::getInstance().setKioskModeComponent(this, false);
+    setContentOwned(&theComponentWeAreUsing, false);
+}
+
+
+VisualizerFullscreen::~VisualizerFullscreen() {
+    
+    
+    juce::Desktop::getInstance().setKioskModeComponent(nullptr, false);
+    
 }

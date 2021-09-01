@@ -46,7 +46,7 @@ private:
     Rectangle<float> drawDimensions;
     float currentValue;
     const float squareRatio = 0.1;
-    int lineThickness = 2;
+    float lineThickness = 1.5;
     Colour squareColour;
     Colour backgroundColour;
 };

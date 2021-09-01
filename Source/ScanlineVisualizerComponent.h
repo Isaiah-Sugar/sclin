@@ -19,6 +19,7 @@ class ScanlineVisualizerComponent  : public juce::Component
 {
 public:
     ScanlineVisualizerComponent(juce::AudioBuffer<float>* theSound, int* xImgPixels, juce::AudioParameterInt* yImgPixels, juce::AudioParameterFloat* roundness, float* channelMultipliers, int* channelModes, juce::AudioParameterBool* colorMode);
+    ScanlineVisualizerComponent(ScanlineVisualizerComponent*);
     ~ScanlineVisualizerComponent() override;
 
     void paint (juce::Graphics&) override;
@@ -51,5 +52,20 @@ private:
     
     
     
+    
+};
+
+
+
+
+
+
+class VisualizerFullscreen : public juce::DocumentWindow {
+public:
+    VisualizerFullscreen(ScanlineVisualizerComponent * theVisuzlizerToCopy);
+    ~VisualizerFullscreen();
+    class ScanlineVisualizerComponent theComponentWeAreUsing;
+    
+private:
     
 };

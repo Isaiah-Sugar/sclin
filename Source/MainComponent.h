@@ -112,16 +112,29 @@ public:
     const Point<float> freezeIconWH = Point<float>(167.00723, 145.31050); //width and height of freezeIconSVG
     const Point<float> freezeIconAspect = Point<float>(freezeIconWH.x / freezeIconWH.y, 1);
 
+    const File fullscreenIconSVG = MainDir.getChildFile("Source/fullscreen icon.svg");
+    
+    const File midiIconSVG = MainDir.getChildFile("Source/midi icon.svg");
+    const File midiIconPressedSVG = MainDir.getChildFile("Source/midi icon pressed.svg");
+    
     std::unique_ptr<Drawable> sclinLogoDrawableNormal =  Drawable::createFromSVGFile(sclinLogoSeperateColorsSVG);
     std::unique_ptr<Drawable> sclinLogoDrawablePressed = Drawable::createFromSVGFile(sclinLogoSeperateColorsSVG);
     
     std::unique_ptr<Drawable> freezeIconDrawableNormal = Drawable::createFromSVGFile(freezeIconSVG);
     std::unique_ptr<Drawable> freezeIconDrawablePressed = Drawable::createFromSVGFile(freezeIconSVG);
     
+    std::unique_ptr<Drawable> fullscreenIconDrawableNormal = Drawable::createFromSVGFile(fullscreenIconSVG);
+    std::unique_ptr<Drawable> fullscreenIconDrawablePressed = Drawable::createFromSVGFile(fullscreenIconSVG);
+    
+    std::unique_ptr<Drawable> midiIconDrawableNormal = Drawable::createFromSVGFile(midiIconSVG);
+    std::unique_ptr<Drawable> midiIconDrawablePressed = Drawable::createFromSVGFile(midiIconPressedSVG);
+    
     DrawableButton settingsMenuButton;
     
     RoundednessSlider myRoundednessSlider;
     DrawableButton freezeButton;
+    DrawableButton fullscreenButton;
+    DrawableButton midiButton;
     
     ScanlineVisualizerComponent scanlineVisualizer;
     
@@ -209,4 +222,8 @@ private:
     
     AudioBuffer<float> theSound;
     SclinAudioProcessor* pointerToAudioProcessor; //used to store parent audioProcessor to use later
+    
+
+    std::unique_ptr <VisualizerFullscreen> the_actual_fullscreen_visualizer;
+    
 };

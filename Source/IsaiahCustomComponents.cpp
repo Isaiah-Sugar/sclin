@@ -125,7 +125,7 @@ void RoundednessSlider::paint(Graphics& g) {
 }
 
 void RoundednessSlider::resized() {
-    drawDimensions.setBounds(lineThickness / 2, lineThickness / 2, getWidth() - lineThickness, getHeight() - lineThickness);
+    drawDimensions.setBounds(lineThickness, lineThickness, getWidth() - (2 * lineThickness), getHeight() - (2 * lineThickness));
 }
 
 void RoundednessSlider::valueChanged() {
