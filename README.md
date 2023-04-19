@@ -8,17 +8,6 @@ scanline audio visualization in your DAW
 
 an (incomplete) VST3/AU plugin to display audio inputs 
 
-PLEASE REPORT ANY BUGS THROUGH GITHUB
-
-DO NOT HESITATE
-
-YOU ARE NOT WASTING MY TIME, MY TIME HAS NO VALUE
-
-YOU CAN'T BE MORE CLUELESS THAN ME
-
-HOW DO I TURN OFF CAPS LOCK
-
-
 # use:
 after sc-lin is installed, a host application will be able to run the .vst3 or .component files. It should appear as a normal audio plugin with midi input.
 
